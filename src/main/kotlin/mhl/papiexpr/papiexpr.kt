@@ -3,11 +3,13 @@ package mhl.papiexpr
 import kotlin.math.PI
 import kotlin.math.round
 import net.fabricmc.api.ModInitializer
-import net.minecraft.util.Identifier
-import net.minecraft.text.Text
+import net.minecraft.resources.Identifier
+import net.minecraft.network.chat.Component
 import eu.pb4.placeholders.api.Placeholders
 import eu.pb4.placeholders.api.PlaceholderResult
 import eu.pb4.placeholders.api.PlaceholderContext
+import eu.pb4.placeholders.api.parsers.NodeParser
+import eu.pb4.placeholders.api.parsers.TagLikeParser
 import com.notkamui.keval.Keval
 
 object PlaceholderAPIExpr: ModInitializer {
@@ -46,9 +48,18 @@ object PlaceholderAPIExpr: ModInitializer {
 			return (res.toString())
 	}
 
+	// Nested args use ${...}, not the %...% of Placeholders.COMMON_PLACEHOLDER_PARSER.
+	// Built rather than using PLACEHOLDER_USER, whose empty separator would swallow
+	// placeholder arguments: ${player:equipment_slot mainhand} must split on the space.
+	private val nestedParser: NodeParser = TagLikeParser.placeholder(
+		TagLikeParser.Format.of("\${", "}", " "),
+		PlaceholderContext.COMMON_KEY,
+		Placeholders.COMMON_PLACEHOLDER_GETTER
+	)
+
 	private fun parseNested(arg: String, ctx: PlaceholderContext): String
 	{
-		return (Placeholders.parseText(Text.literal(arg), ctx, Placeholders.PREDEFINED_PLACEHOLDER_PATTERN).getString())
+		return (nestedParser.parseComponent(arg, ctx.asParserContext()).getString())
 	}
 
 	private fun parsekMathOrString(isMath: String, arg: String): String
@@ -60,18 +71,18 @@ object PlaceholderAPIExpr: ModInitializer {
 
 	override fun onInitialize()
 	{
-		Placeholders.register(Identifier.of("expr", "math")) {ctx, arg ->
+		Placeholders.registerCommon<String>(Identifier.fromNamespaceAndPath("expr", "math")) {ctx, arg ->
 			try {
 				if (arg == null)
 					throw Exception("Missing arguments")
-				PlaceholderResult.value(Text.literal(kMath(parseNested(arg, ctx))))
+				PlaceholderResult.value(Component.literal(kMath(parseNested(arg, ctx))))
 			}
 			catch (e: Exception) {
 				PlaceholderResult.invalid(e.message)
 			}
 		}
 
-		Placeholders.register(Identifier.of("expr", "ifeq")) {ctx, arg ->
+		Placeholders.registerCommon<String>(Identifier.fromNamespaceAndPath("expr", "ifeq")) {ctx, arg ->
 			try {
 				if (arg == null)
 					throw Exception("Missing arguments")
@@ -88,16 +99,16 @@ object PlaceholderAPIExpr: ModInitializer {
 						kMath(args[3]) else args[3].trim()
 				
 				if (a == b)
-					PlaceholderResult.value(Text.literal(parsekMathOrString(args[4], args[5])))
+					PlaceholderResult.value(Component.literal(parsekMathOrString(args[4], args[5])))
 				else
-					PlaceholderResult.value(Text.literal(parsekMathOrString(args[6], args[7])))
+					PlaceholderResult.value(Component.literal(parsekMathOrString(args[6], args[7])))
 			}
 			catch (e: Exception) {
 				PlaceholderResult.invalid(e.message)
 			}
 		}
 
-		Placeholders.register(Identifier.of("expr", "iflt")) {ctx, arg ->
+		Placeholders.registerCommon<String>(Identifier.fromNamespaceAndPath("expr", "iflt")) {ctx, arg ->
 			try {
 				if (arg == null)
 					throw Exception("Missing arguments")
@@ -106,16 +117,16 @@ object PlaceholderAPIExpr: ModInitializer {
 				if (args.size != 6)
 					throw Exception("Must have exactly 6 arguments")
 				if (_Keval.eval(args[0]) < _Keval.eval(args[1]))
-					PlaceholderResult.value(Text.literal(parsekMathOrString(args[2], args[3])))
+					PlaceholderResult.value(Component.literal(parsekMathOrString(args[2], args[3])))
 				else
-					PlaceholderResult.value(Text.literal(parsekMathOrString(args[4], args[5])))
+					PlaceholderResult.value(Component.literal(parsekMathOrString(args[4], args[5])))
 			}
 			catch (e: Exception) {
 				PlaceholderResult.invalid(e.message)
 			}
 		}
 
-		Placeholders.register(Identifier.of("expr", "ifgt")) {ctx, arg ->
+		Placeholders.registerCommon<String>(Identifier.fromNamespaceAndPath("expr", "ifgt")) {ctx, arg ->
 			try {
 				if (arg == null)
 					throw Exception("Missing arguments")
@@ -124,16 +135,16 @@ object PlaceholderAPIExpr: ModInitializer {
 				if (args.size != 6)
 					throw Exception("Must have exactly 6 arguments")
 				if (_Keval.eval(args[0]) > _Keval.eval(args[1]))
-					PlaceholderResult.value(Text.literal(parsekMathOrString(args[2], args[3])))
+					PlaceholderResult.value(Component.literal(parsekMathOrString(args[2], args[3])))
 				else
-					PlaceholderResult.value(Text.literal(parsekMathOrString(args[4], args[5])))
+					PlaceholderResult.value(Component.literal(parsekMathOrString(args[4], args[5])))
 			}
 			catch (e: Exception) {
 				PlaceholderResult.invalid(e.message)
 			}
 		}
 
-		Placeholders.register(Identifier.of("expr", "pad")) {ctx, arg ->
+		Placeholders.registerCommon<String>(Identifier.fromNamespaceAndPath("expr", "pad")) {ctx, arg ->
 			try {
 				if (arg == null)
 					throw Exception("Missing argument")
@@ -144,14 +155,14 @@ object PlaceholderAPIExpr: ModInitializer {
 				val padChar: Char = args[2].trim().firstOrNull() ?: ' '
 				val padCount: Int = ((_Keval.eval(args[0]).toInt() - args[1].trim().length) / 2).coerceAtLeast(0)
 				val padString: String = padChar.toString().repeat(padCount)
-				PlaceholderResult.value(Text.literal(padString + args[1].trim() + padString))
+				PlaceholderResult.value(Component.literal(padString + args[1].trim() + padString))
 			}
 			catch (e: Exception) {
 				PlaceholderResult.invalid(e.message)
 			}
 		}
 
-		Placeholders.register(Identifier.of("expr", "padleft")) {ctx, arg ->
+		Placeholders.registerCommon<String>(Identifier.fromNamespaceAndPath("expr", "padleft")) {ctx, arg ->
 			try {
 				if (arg == null)
 					throw Exception("Missing argument")
@@ -162,14 +173,14 @@ object PlaceholderAPIExpr: ModInitializer {
 				val padChar: Char = args[2].trim().firstOrNull() ?: ' '
 				val padCount: Int = (_Keval.eval(args[0]).toInt() - args[1].trim().length).coerceAtLeast(0)
 				val padString: String = padChar.toString().repeat(padCount)
-				PlaceholderResult.value(Text.literal(padString + args[1].trim()))
+				PlaceholderResult.value(Component.literal(padString + args[1].trim()))
 			}
 			catch (e: Exception) {
 				PlaceholderResult.invalid(e.message)
 			}
 		}
 
-		Placeholders.register(Identifier.of("expr", "padright")) {ctx, arg ->
+		Placeholders.registerCommon<String>(Identifier.fromNamespaceAndPath("expr", "padright")) {ctx, arg ->
 			try {
 				if (arg == null)
 					throw Exception("Missing argument")
@@ -180,14 +191,14 @@ object PlaceholderAPIExpr: ModInitializer {
 				val padChar: Char = args[2].trim().firstOrNull() ?: ' '
 				val padCount: Int = (_Keval.eval(args[0]).toInt() - args[1].trim().length).coerceAtLeast(0)
 				val padString: String = padChar.toString().repeat(padCount)
-				PlaceholderResult.value(Text.literal(args[1].trim() + padString))
+				PlaceholderResult.value(Component.literal(args[1].trim() + padString))
 			}
 			catch (e: Exception) {
 				PlaceholderResult.invalid(e.message)
 			}
 		}
 
-		Placeholders.register(Identifier.of("expr", "padmatch")) {ctx, arg ->
+		Placeholders.registerCommon<String>(Identifier.fromNamespaceAndPath("expr", "padmatch")) {ctx, arg ->
 			try {
 				if (arg == null)
 					throw Exception("Missing argument")
@@ -198,14 +209,14 @@ object PlaceholderAPIExpr: ModInitializer {
 				val padChar: Char = args[2].trim().firstOrNull() ?: ' '
 				val padCount: Int = ((args[0].trim().length - args[1].trim().length) / 2).coerceAtLeast(0)
 				val padString: String = padChar.toString().repeat(padCount)
-				PlaceholderResult.value(Text.literal(padString + args[1].trim() + padString))
+				PlaceholderResult.value(Component.literal(padString + args[1].trim() + padString))
 			}
 			catch (e: Exception) {
 				PlaceholderResult.invalid(e.message)
 			}
 		}
 
-		Placeholders.register(Identifier.of("expr", "padmatchleft")) {ctx, arg ->
+		Placeholders.registerCommon<String>(Identifier.fromNamespaceAndPath("expr", "padmatchleft")) {ctx, arg ->
 			try {
 				if (arg == null)
 					throw Exception("Missing argument")
@@ -216,14 +227,14 @@ object PlaceholderAPIExpr: ModInitializer {
 				val padChar: Char = args[2].trim().firstOrNull() ?: ' '
 				val padCount: Int = (args[0].trim().length - args[1].trim().length).coerceAtLeast(0)
 				val padString: String = padChar.toString().repeat(padCount)
-				PlaceholderResult.value(Text.literal(padString + args[1].trim()))
+				PlaceholderResult.value(Component.literal(padString + args[1].trim()))
 			}
 			catch (e: Exception) {
 				PlaceholderResult.invalid(e.message)
 			}
 		}
 
-		Placeholders.register(Identifier.of("expr", "padmatchright")) {ctx, arg ->
+		Placeholders.registerCommon<String>(Identifier.fromNamespaceAndPath("expr", "padmatchright")) {ctx, arg ->
 			try {
 				if (arg == null)
 					throw Exception("Missing argument")
@@ -234,7 +245,7 @@ object PlaceholderAPIExpr: ModInitializer {
 				val padChar: Char = args[2].trim().firstOrNull() ?: ' '
 				val padCount: Int = (args[0].trim().length - args[1].trim().length).coerceAtLeast(0)
 				val padString: String = padChar.toString().repeat(padCount)
-				PlaceholderResult.value(Text.literal(args[1].trim() + padString))
+				PlaceholderResult.value(Component.literal(args[1].trim() + padString))
 			}
 			catch (e: Exception) {
 				PlaceholderResult.invalid(e.message)

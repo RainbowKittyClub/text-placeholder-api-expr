@@ -22,12 +22,12 @@
   },
   "mixins": [],
   "depends": {
-    "fabricloader": ">=0.17.2",
-    "minecraft": "~1.21",
-    "java": ">=21",
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~26.2",
+    "java": ">=25",
     "fabric-api": "*",
     "fabric-language-kotlin": "*",
-    "placeholder-api": "2.8.0+1.21.9"
+    "placeholder-api": ">=3.1.0-beta.1"
   },
   "suggests": {}
 }
