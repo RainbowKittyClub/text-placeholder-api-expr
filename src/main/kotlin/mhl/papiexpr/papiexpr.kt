@@ -8,6 +8,7 @@ import net.minecraft.network.chat.Component
 import eu.pb4.placeholders.api.Placeholders
 import eu.pb4.placeholders.api.PlaceholderResult
 import eu.pb4.placeholders.api.PlaceholderContext
+import eu.pb4.placeholders.api.ServerPlaceholderContext
 import eu.pb4.placeholders.api.parsers.NodeParser
 import eu.pb4.placeholders.api.parsers.TagLikeParser
 import com.notkamui.keval.Keval
@@ -51,10 +52,13 @@ object PlaceholderAPIExpr: ModInitializer {
 	// Nested args use ${...}, not the %...% of Placeholders.COMMON_PLACEHOLDER_PARSER.
 	// Built rather than using PLACEHOLDER_USER, whose empty separator would swallow
 	// placeholder arguments: ${player:equipment_slot mainhand} must split on the space.
+	// The server getter, not the common one: registerCommon mirrors its entries into both maps,
+	// but registerServer placeholders (playerpronouns:raw_pronouns) exist only in the server map
+	// and getCommonPlaceholder has no fallback, so the common getter leaves them unexpanded.
 	private val nestedParser: NodeParser = TagLikeParser.placeholder(
 		TagLikeParser.Format.of("\${", "}", " "),
-		PlaceholderContext.COMMON_KEY,
-		Placeholders.COMMON_PLACEHOLDER_GETTER
+		ServerPlaceholderContext.SERVER_KEY,
+		Placeholders.SERVER_PLACEHOLDER_GETTER
 	)
 
 	private fun parseNested(arg: String, ctx: PlaceholderContext): String
