@@ -1,7 +1,9 @@
+// Applied to each Stonecutter version node (versions/<v>/), never to the root controller. Plugin
+// versions come from stonecutter.gradle; per-version keys from versions/<v>/gradle.properties.
 plugins {
-	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'net.fabricmc.fabric-loom'
 	id 'maven-publish'
-	id "org.jetbrains.kotlin.jvm" version "2.4.10"
+	id 'org.jetbrains.kotlin.jvm'
 }
 
 version = project.mod_version
@@ -37,34 +39,76 @@ dependencies {
 	implementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
 	compileOnly "eu.pb4:placeholder-api:${project.papi_version}"
 	localRuntime "eu.pb4:placeholder-api:${project.papi_version}"
-	implementation include("com.notkamui.libs:keval:1.1.1")
+	implementation include("com.notkamui.libs:keval:${project.keval_version}")
 }
 
 processResources {
-	inputs.property "version", project.version
+	// fabric.mod.json floors: the loader and Placeholder API this node built against, and its game
+	// version. Build metadata (+26.2) is dropped from the Placeholder API floor.
+	def props = [
+		"version": project.version,
+		"minecraft_version": project.minecraft_version,
+		"loader_version": project.loader_version,
+		"java_version": project.java_version,
+		"papi_min_version": project.papi_version.takeWhile { it != '+' },
+	]
+	inputs.properties props
 
 	filesMatching("fabric.mod.json") {
-		expand "version": project.version
+		expand props
 	}
 }
 
 tasks.withType(JavaCompile).configureEach {
-	it.options.release = 25
+	it.options.release = project.java_version.toInteger()
 }
 
 kotlin {
 	compilerOptions {
-		jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25
+		jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(project.java_version)
 	}
 }
 
 java {
-	sourceCompatibility = JavaVersion.VERSION_25
-	targetCompatibility = JavaVersion.VERSION_25
+	sourceCompatibility = JavaVersion.toVersion(project.java_version)
+	targetCompatibility = JavaVersion.toVersion(project.java_version)
 }
 
 jar {
-	from("LICENSE") {
-		rename { "${it}_${project.base.archivesName.get()}"}
+	// From the root: a node's own directory is versions/<v>/, which has no LICENSE.
+	def archivesName = base.archivesName
+	from(rootProject.file("LICENSE")) {
+		rename { "${it}_${archivesName.get()}" }
+	}
+}
+
+// GitHub Packages wants a token even to read a public package. CI passes GITHUB_ACTOR/GITHUB_TOKEN;
+// a local build reads gpr.user/gpr.key from ~/.gradle/gradle.properties.
+def githubUser = System.getenv('GITHUB_ACTOR') ?: project.findProperty('gpr.user')
+def githubToken = System.getenv('GITHUB_TOKEN') ?: project.findProperty('gpr.key')
+def publishSlug = System.getenv('GITHUB_REPOSITORY') ?: project.findProperty('publish_repository')
+
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			// The node is named after its version, which would otherwise become the artifactId.
+			artifactId = project.archives_base_name
+			version = "${project.mod_version}+${project.minecraft_version}"
+			from components.java
+		}
+	}
+	repositories {
+		if (publishSlug) {
+			maven {
+				name = 'GitHubPackages'
+				url = uri("https://maven.pkg.github.com/${publishSlug}")
+				if (githubUser && githubToken) {
+					credentials {
+						username = githubUser
+						password = githubToken
+					}
+				}
+			}
+		}
 	}
 }
