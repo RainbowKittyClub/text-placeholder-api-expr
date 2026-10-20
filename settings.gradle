@@ -4,7 +4,26 @@ pluginManagement {
 			name = 'Fabric'
 			url = 'https://maven.fabricmc.net/'
 		}
+		maven {
+			name = 'KikuGie Releases'
+			url = 'https://maven.kikugie.dev/releases'
+		}
 		mavenCentral()
 		gradlePluginPortal()
+	}
+}
+
+plugins {
+	id 'dev.kikugie.stonecutter' version "${stonecutter_version}"
+}
+
+// Fixed, so a checkout's directory name (a worktree, say) never names the project or its nodes' cache.
+rootProject.name = providers.gradleProperty('archives_base_name').get()
+
+// One node per Minecraft version under versions/<v>/, each with its own gradle.properties.
+stonecutter {
+	create(rootProject) {
+		versions(*providers.gradleProperty('stonecutter_versions').get().split(',')*.trim())
+		vcsVersion = providers.gradleProperty('stonecutter_vcs_version').get()
 	}
 }
